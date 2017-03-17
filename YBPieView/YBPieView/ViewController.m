@@ -30,17 +30,17 @@
     [self.view addSubview:chart];
     chart.dataSource = self;
     chart.animationDuration = 1;
-    [chart reloadData];
+    [chart loadView];
     self.cView = chart;
 }
 
 - (void)touchesBegan:(NSSet<UITouch *> *)touches withEvent:(UIEvent *)event {
-    if (self.datas.count) {
-        [self.datas removeAllObjects];
-    } else {
-        self.datas = [NSMutableArray arrayWithArray:@[@10,@15,@23,@45,@35]];
-    }
-    [self.cView reloadData];
+//    if (self.datas.count) {
+//        [self.datas removeAllObjects];
+//    } else {
+//        self.datas = [NSMutableArray arrayWithArray:@[@10,@15,@23,@45,@35]];
+//    }
+//    [self.cView reloadData];
 }
 
 #pragma mark - PieView Data Source
@@ -58,28 +58,8 @@
 }
 
 - (NSString *)pieChart:(YBPieView *)pieChart imageNameForSliceAtIndex:(NSUInteger)index {
-    NSString *image = nil;
-    switch (index) {
-        case 0:
-            image = @"1";
-            break;
-        case 1:
-            image = @"2";
-            break;
-        case 2:
-            image = @"3";
-            break;
-        case 3:
-            image = @"4";
-            break;
-        case 4:
-            image = @"5";
-            break;
-            
-        default:
-            break;
-    }
-    return image;
+    NSArray *imageArray = @[@"1",@"2",@"3",@"4",@"5"];
+    return imageArray[index];
 }
 
 @end

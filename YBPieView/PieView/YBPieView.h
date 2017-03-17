@@ -33,6 +33,6 @@
 @property (nonatomic, assign) CGFloat pieWidth;
 @property (nonatomic, assign) CGFloat selectedOffsetRadius;
 
-- (void)reloadData;
+- (void)loadView;
 
 @end

@@ -31,6 +31,7 @@ static PolarCoordinate decartToPolar(CGPoint center, CGPoint point){
     CGPoint _pieCenter;
     CGFloat _pieRadius;
     NSInteger _selectedIndex;
+    CGFloat _rotateDuration;
 }
 
 @end
@@ -47,11 +48,16 @@ static PolarCoordinate decartToPolar(CGPoint center, CGPoint point){
         _pieWidth = 30;
         _selectedIndex = -1;
         _selectedOffsetRadius = 7.0;
+        _rotateDuration = 0.5;
     }
     return self;
 }
 
-- (void)reloadData {
+- (void)loadView {
+    [self reloadDataWithAnimationDuration:_animationDuration];
+}
+
+- (void)reloadDataWithAnimationDuration:(CGFloat)duration {
     [self sublayersInit];
     
     double lastStartAngle = 0.0;
@@ -79,7 +85,7 @@ static PolarCoordinate decartToPolar(CGPoint center, CGPoint point){
     
     // 修改图层树之前，通过给CATrasaction类发送begin消息来创建一个显式事务，修改完之后发送comit消息。
     [CATransaction begin];
-    [CATransaction setAnimationDuration:_animationDuration];
+    [CATransaction setAnimationDuration:duration];
     self.userInteractionEnabled = NO;
     
     BOOL isOnEnd = (self.layer.sublayers.count && (dataCount == 0 || dataSourceSum <= 0));
@@ -151,7 +157,7 @@ static PolarCoordinate decartToPolar(CGPoint center, CGPoint point){
     [self.layer.sublayers enumerateObjectsUsingBlock:^(CALayer * _Nonnull obj, NSUInteger idx, BOOL * _Nonnull stop) {
         CircleLayer *layer = (CircleLayer *)obj;
         if (layer.isSelected) {
-            [self setDeselectedAtIndex:idx];
+            [self setDeselectedAtIndex:idx completion:nil];
         }
     }];
 }
@@ -272,25 +278,50 @@ static PolarCoordinate decartToPolar(CGPoint center, CGPoint point){
 #pragma mark - notify delegate
 
 - (void)notifyDelegateFrom:(NSInteger)fromSeletion to:(NSInteger)toSeletion {
+    self.userInteractionEnabled = NO;
     if (fromSeletion != toSeletion) {
+        // 1.收回
         if (fromSeletion != -1) {
             // delegate
-            [self setDeselectedAtIndex:fromSeletion];
+            [self setDeselectedAtIndex:fromSeletion completion:^(YBPieView *view) {
+                // 2.旋转
+                [view circleRotateAtIndex:toSeletion completion:^(YBPieView *view) {
+                    if (toSeletion != -1) {
+                        // delegate
+                        // 3.展开
+                        [view setSelectedAtIndex:toSeletion completion:^(YBPieView *view) {
+                            view.userInteractionEnabled = YES;
+                        }];
+                    }
+                }];
+            }];
+            return;
         }
         if (toSeletion != -1) {
             // delegate
-            [self setSelectedAtIndex:toSeletion];
-            _selectedIndex = toSeletion;
+            [self circleRotateAtIndex:toSeletion completion:^(YBPieView *view) {
+                if (toSeletion != -1) {
+                    // delegate
+                    // 3.展开
+                    [view setSelectedAtIndex:toSeletion completion:^(YBPieView *view) {
+                        view.userInteractionEnabled = YES;
+                    }];
+                }
+            }];
         }
     } else {
         CircleLayer *layer = (CircleLayer *)self.layer.sublayers[fromSeletion];
         if (layer) {
             if (layer.isSelected) {
                 // delegate
-                [self setDeselectedAtIndex:fromSeletion];
+                [self setDeselectedAtIndex:fromSeletion completion:^(YBPieView *view) {
+                    view.userInteractionEnabled = YES;
+                }];
             } else {
                 // delegate
-                [self setSelectedAtIndex:fromSeletion];
+                [self setSelectedAtIndex:toSeletion completion:^(YBPieView *view) {
+                    view.userInteractionEnabled = YES;
+                }];
             }
         }
     }
@@ -298,7 +329,44 @@ static PolarCoordinate decartToPolar(CGPoint center, CGPoint point){
 
 #pragma mark - touch handling
 
-- (void)setSelectedAtIndex:(NSInteger)index {
+- (void)doTaskAfter:(CGFloat)after task:(void(^)(YBPieView *view))block {
+    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(after * 1000 * NSEC_PER_MSEC)), dispatch_get_main_queue(), ^{
+        if (block) {
+            block(self);
+        }
+    });
+}
+
+- (void)circleRotateAtIndex:(NSInteger)index completion:(void(^)(YBPieView *view))block {
+    CGFloat animationDuration = 0.5;
+    CircleLayer *layer = (CircleLayer *)self.layer.sublayers[index];
+    if (!layer.isSelected) {
+        double middleAngle = (layer.startAngle + layer.endAngle)/2.0;
+        while (middleAngle > 2*M_PI) {
+            middleAngle -= 2*M_PI;
+        }
+        if (fabs(middleAngle - M_PI/2) < 0.2) {
+            animationDuration = 0.1;
+        }
+        if (middleAngle > M_PI/2 && middleAngle < 3*M_PI/2) {
+            _startPieAngle -= middleAngle - M_PI/2;
+        } else if (middleAngle == 3*M_PI/2 || middleAngle == M_PI/2) {
+            animationDuration = 0;
+        } else if (middleAngle > 3*M_PI/2 && middleAngle <= 2*M_PI) {
+            _startPieAngle += 2*M_PI - middleAngle + M_PI/2;
+        } else if (middleAngle >= 0 && middleAngle < M_PI/2) {
+            _startPieAngle += M_PI/2 - middleAngle;
+        }
+        [self reloadDataWithAnimationDuration:_rotateDuration];
+    }
+    if (block) {
+        [self doTaskAfter:animationDuration task:^(YBPieView *view) {
+            block(view);
+        }];
+    }
+}
+
+- (void)setSelectedAtIndex:(NSInteger)index completion:(void(^)(YBPieView *view))block {
     CircleLayer *layer = (CircleLayer *)self.layer.sublayers[index];
     if (!layer.isSelected) {
         CGPoint currPos = layer.position;
@@ -307,14 +375,26 @@ static PolarCoordinate decartToPolar(CGPoint center, CGPoint point){
         // 这里的位移会产生显式动画
         layer.position = newPos;
         layer.isSelected = YES;
+        _selectedIndex = index;
+    }
+    if (block) {
+        [self doTaskAfter:0.2 task:^(YBPieView *view) {
+            block(view);
+        }];
     }
 }
 
-- (void)setDeselectedAtIndex:(NSInteger)index {
+- (void)setDeselectedAtIndex:(NSInteger)index completion:(void(^)(YBPieView *view))block {
     CircleLayer *layer = (CircleLayer *)self.layer.sublayers[index];
     if (layer.isSelected) {
         layer.position = CGPointMake(0, 0);
         layer.isSelected = NO;
+        _selectedIndex = -1;
+    }
+    if (block) {
+        [self doTaskAfter:0.2 task:^(YBPieView *view) {
+            block(view);
+        }];
     }
 }
 
