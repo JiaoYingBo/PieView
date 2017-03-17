@@ -43,7 +43,7 @@ static PolarCoordinate decartToPolar(CGPoint center, CGPoint point){
         _pieCenter = CGPointMake(frame.size.width/2, frame.size.height/2);
         _pieRadius = 70;
         _animationDuration = 3;
-        _startPieAngle = 1;
+        _startPieAngle = 7;
         _pieWidth = 30;
         _selectedIndex = -1;
         _selectedOffsetRadius = 7.0;
@@ -122,7 +122,6 @@ static PolarCoordinate decartToPolar(CGPoint center, CGPoint point){
         double endAngle = _startPieAngle + lastEndAngle;
         
         layer.lineWidth = _pieWidth;
-        layer.currentRadius = _pieRadius;
         layer.value = dataSources[index];
         layer.percentage = dataSourceSum ? layer.value/dataSourceSum : 0;
         
@@ -186,6 +185,13 @@ static PolarCoordinate decartToPolar(CGPoint center, CGPoint point){
     [layer setValue:to forKey:key];
 }
 
+- (void)setStartPieAngle:(CGFloat)startPieAngle {
+    if (startPieAngle < 0) {
+        @throw [NSException exceptionWithName:NSInternalInconsistencyException reason:@"_startPieAngle不能小于0" userInfo:nil];
+    }
+    _startPieAngle = startPieAngle;
+}
+
 #pragma mark - CAAnimation delegate and timer
 
 - (void)animationDidStart:(CAAnimation *)anim {
@@ -239,7 +245,8 @@ static PolarCoordinate decartToPolar(CGPoint center, CGPoint point){
 #pragma mark - touch actions
 
 - (void)touchesBegan:(NSSet<UITouch *> *)touches withEvent:(UIEvent *)event {
-    //
+//    _startPieAngle ++;
+//    [self reloadData];
 }
 
 - (void)touchesMoved:(NSSet<UITouch *> *)touches withEvent:(UIEvent *)event {
@@ -299,7 +306,6 @@ static PolarCoordinate decartToPolar(CGPoint center, CGPoint point){
         CGPoint newPos = CGPointMake(currPos.x + _selectedOffsetRadius*cos(middleAngle), currPos.y + _selectedOffsetRadius*sin(middleAngle));
         // 这里的位移会产生显式动画
         layer.position = newPos;
-        layer.currentRadius = 0;
         layer.isSelected = YES;
     }
 }
@@ -308,7 +314,6 @@ static PolarCoordinate decartToPolar(CGPoint center, CGPoint point){
     CircleLayer *layer = (CircleLayer *)self.layer.sublayers[index];
     if (layer.isSelected) {
         layer.position = CGPointMake(0, 0);
-        layer.currentRadius = _pieRadius;
         layer.isSelected = NO;
     }
 }
@@ -318,7 +323,7 @@ static PolarCoordinate decartToPolar(CGPoint center, CGPoint point){
     PolarCoordinate polar = decartToPolar(_pieCenter, point);
     
     CGFloat newRadius = _pieRadius + _selectedOffsetRadius;
-    // 判断大半径
+    // 判断大半径(半径+选中偏移量)
     if (polar.radius < newRadius-_pieWidth/2-_selectedOffsetRadius || polar.radius > newRadius+_pieWidth/2) {
         return index;
     }
@@ -337,11 +342,17 @@ static PolarCoordinate decartToPolar(CGPoint center, CGPoint point){
             // 判断角度
             if (polar.angle > currentStartAngle && polar.angle < currentEndAngle) {
                 index = idx;
-            } else if (currentEndAngle > 2*M_PI) {
-                CGFloat tempEnd = currentEndAngle - 2*M_PI;
-                if (polar.angle >= 0 && polar.angle < tempEnd) {
+            }
+            
+            NSInteger round = _startPieAngle/2*M_PI + 1;
+            CGFloat angle = polar.angle;
+            while (round) {
+                angle += 2*M_PI;
+                if (angle > currentStartAngle && angle < currentEndAngle) {
                     index = idx;
+                    break;
                 }
+                round --;
             }
         }
     }];

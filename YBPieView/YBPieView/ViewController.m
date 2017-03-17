@@ -26,7 +26,7 @@
     self.datas = [NSMutableArray arrayWithArray:@[@10,@15,@23,@45,@35]];
     self.colorArray =  [NSArray arrayWithObjects:[UIColor redColor],[UIColor orangeColor],[UIColor yellowColor],[UIColor greenColor],[UIColor blueColor],nil];
     
-    YBPieView *chart = [[YBPieView alloc] initWithFrame:CGRectMake(0, 0, 200, 200)];
+    YBPieView *chart = [[YBPieView alloc] initWithFrame:CGRectMake(85, 50, 200, 200)];
     [self.view addSubview:chart];
     chart.dataSource = self;
     chart.animationDuration = 1;

@@ -15,6 +15,5 @@
 @property (nonatomic, assign) BOOL      isSelected;
 @property (nonatomic, assign) CGFloat   value;
 @property (nonatomic, assign) CGFloat   percentage;
-@property (nonatomic, assign) CGFloat   currentRadius;
 
 @end
