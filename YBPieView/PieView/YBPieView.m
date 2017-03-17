@@ -31,24 +31,25 @@ static PolarCoordinate decartToPolar(CGPoint center, CGPoint point){
     CGPoint _pieCenter;
     CGFloat _pieRadius;
     NSInteger _selectedIndex;
-    CGFloat _rotateDuration;
+    BOOL _isTouching;
 }
 
 @end
 
 @implementation YBPieView
 
+#pragma mark - view init
+
 - (instancetype)initWithFrame:(CGRect)frame {
     if (self = [super initWithFrame:frame]) {
         _animations = [[NSMutableArray alloc] init];
         _pieCenter = CGPointMake(frame.size.width/2, frame.size.height/2);
-        _pieRadius = 70;
         _animationDuration = 3;
-        _startPieAngle = 7;
+        _startPieAngle = 0;
         _pieWidth = 30;
+        _pieRadius = MIN(frame.size.width/2 - _pieWidth, frame.size.width/2 - _pieWidth);
         _selectedIndex = -1;
         _selectedOffsetRadius = 7.0;
-        _rotateDuration = 0.5;
     }
     return self;
 }
@@ -149,7 +150,6 @@ static PolarCoordinate decartToPolar(CGPoint center, CGPoint point){
     
     self.userInteractionEnabled = YES;
     [CATransaction commit];
-    
 }
 
 - (void)sublayersInit {
@@ -190,6 +190,8 @@ static PolarCoordinate decartToPolar(CGPoint center, CGPoint point){
     // 设置结束值，这样动画结束之后就会停留在结束位置，而不会返回初始位置，这里一定要在添加动画之后设置
     [layer setValue:to forKey:key];
 }
+
+#pragma mark - setter
 
 - (void)setStartPieAngle:(CGFloat)startPieAngle {
     if (startPieAngle < 0) {
@@ -302,7 +304,6 @@ static PolarCoordinate decartToPolar(CGPoint center, CGPoint point){
             [self circleRotateAtIndex:toSeletion completion:^(YBPieView *view) {
                 if (toSeletion != -1) {
                     // delegate
-                    // 3.展开
                     [view setSelectedAtIndex:toSeletion completion:^(YBPieView *view) {
                         view.userInteractionEnabled = YES;
                     }];
@@ -342,6 +343,10 @@ static PolarCoordinate decartToPolar(CGPoint center, CGPoint point){
     CircleLayer *layer = (CircleLayer *)self.layer.sublayers[index];
     if (!layer.isSelected) {
         double middleAngle = (layer.startAngle + layer.endAngle)/2.0;
+        // 一直逆时针转，_StartPieAngle是会小于0的，小于0了就给它加圈
+        while (middleAngle < 0) {
+            middleAngle += 2*M_PI;
+        }
         while (middleAngle > 2*M_PI) {
             middleAngle -= 2*M_PI;
         }
@@ -357,7 +362,7 @@ static PolarCoordinate decartToPolar(CGPoint center, CGPoint point){
         } else if (middleAngle >= 0 && middleAngle < M_PI/2) {
             _startPieAngle += M_PI/2 - middleAngle;
         }
-        [self reloadDataWithAnimationDuration:_rotateDuration];
+        [self reloadDataWithAnimationDuration:animationDuration];
     }
     if (block) {
         [self doTaskAfter:animationDuration task:^(YBPieView *view) {
@@ -426,13 +431,26 @@ static PolarCoordinate decartToPolar(CGPoint center, CGPoint point){
             
             NSInteger round = _startPieAngle/2*M_PI + 1;
             CGFloat angle = polar.angle;
-            while (round) {
-                angle += 2*M_PI;
-                if (angle > currentStartAngle && angle < currentEndAngle) {
-                    index = idx;
-                    break;
+            
+            // 角度大于2π时，触摸点加圈判断，小于0时触摸点减圈判断
+            if (round >= 1) {
+                while (round) {
+                    angle += 2*M_PI;
+                    if (angle > currentStartAngle && angle < currentEndAngle) {
+                        index = idx;
+                        break;
+                    }
+                    round --;
                 }
-                round --;
+            } else {
+                while (round) {
+                    angle -= 2*M_PI;
+                    if (angle > currentStartAngle && angle < currentEndAngle) {
+                        index = idx;
+                        break;
+                    }
+                    round ++;
+                }
             }
         }
     }];
