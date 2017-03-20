@@ -10,19 +10,36 @@
 #import "YBPieViewMath.h"
 #import <UIKit/UIGestureRecognizerSubclass.h>
 
-@implementation RotateGestureRecognizer
+static const NSInteger sensitivity = 6; // 灵敏度
+
+@implementation RotateGestureRecognizer {
+    NSInteger _movedTimes;
+}
 
 - (void)touchesBegan:(NSSet *)touches withEvent:(UIEvent *)event {
     if ([[event touchesForGestureRecognizer:self] count] > 1) {
         self.state = UIGestureRecognizerStateFailed;
     }
+    if (_innerRadius) {
+        UITouch *touch = [touches anyObject];
+        CGPoint point = [touch locationInView:self.view];
+        CGPoint center = CGPointMake(CGRectGetMidX(self.view.bounds), CGRectGetMidY(self.view.bounds));
+        PolarCoordinate polar = decartToPolar(center, point);
+        if (polar.radius < _innerRadius || polar.radius > _outerRadius) {
+            self.state = UIGestureRecognizerStateFailed;
+        }
+    }
+    _movedTimes = 0;
 }
 
 - (void)touchesMoved:(NSSet *)touches withEvent:(UIEvent *)event {
-    if (self.state == UIGestureRecognizerStatePossible) {
-        [self setState:UIGestureRecognizerStateBegan];
-    } else {
-        [self setState:UIGestureRecognizerStateChanged];
+    // 连续触发N次以上才触发手势，以便区分小幅度旋转手势和单击手势
+    if (_movedTimes++ > sensitivity) {
+        if (self.state == UIGestureRecognizerStatePossible) {
+            [self setState:UIGestureRecognizerStateBegan];
+        } else {
+            [self setState:UIGestureRecognizerStateChanged];
+        }
     }
     
     UIView *view = self.view;
@@ -41,10 +58,12 @@
 }
 
 - (void)touchesEnded:(NSSet *)touches withEvent:(UIEvent *)event {
-    if (self.state == UIGestureRecognizerStateChanged) {
-        [self setState:UIGestureRecognizerStateEnded];
-    } else {
-        [self setState:UIGestureRecognizerStateFailed];
+    if (_movedTimes > sensitivity) {
+        if (self.state == UIGestureRecognizerStateChanged) {
+            [self setState:UIGestureRecognizerStateEnded];
+        } else {
+            [self setState:UIGestureRecognizerStateFailed];
+        }
     }
 }
 

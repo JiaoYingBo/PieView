@@ -31,14 +31,14 @@
         _pieCenter = CGPointMake(frame.size.width/2, frame.size.height/2);
         _animationDuration = 3;
         _startPieAngle = 0;
-        _pieWidth = 40;
-        _pieRadius = MIN(frame.size.width/2 - _pieWidth, frame.size.width/2 - _pieWidth);
+        _pieLineWidth = 40;
+        _pieRadius = MIN(frame.size.width/2 - _pieLineWidth, frame.size.width/2 - _pieLineWidth);
         _selectedIndex = -1;
         _selectedOffsetRadius = 7.0;
         
         RotateGestureRecognizer *rotateRec = [[RotateGestureRecognizer alloc] initWithTarget:self action:@selector(rotateRecognizer:)];
-        rotateRec.innerRadius = _pieRadius - _pieWidth/2;
-        rotateRec.outerRadius = _pieRadius + _pieWidth/2;
+        rotateRec.innerRadius = _pieRadius - _pieLineWidth/2;
+        rotateRec.outerRadius = _pieRadius + _pieLineWidth/2;
         [self addGestureRecognizer:rotateRec];
         
         UITapGestureRecognizer *tapRec = [[UITapGestureRecognizer alloc] initWithTarget:self action:@selector(tapRecognizer:)];
@@ -47,16 +47,16 @@
     return self;
 }
 
-- (void)loadView {
+- (void)reloadData {
     self.userInteractionEnabled = NO;
-    [self reloadDataWithAnimationDuration:_animationDuration completion:nil];
+    [self loadDataWithAnimationDuration:_animationDuration completion:nil];
     [self doTaskAfter:_animationDuration task:^(YBPieView *view) {
         self.userInteractionEnabled = YES;
     }];
 }
 
-- (void)reloadDataWithAnimationDuration:(CGFloat)duration completion:(void(^)(YBPieView *view))block {
-    [self sublayersInit];
+- (void)loadDataWithAnimationDuration:(CGFloat)duration completion:(void(^)(YBPieView *view))block {
+    [self segmentsDeselect];
     
     double lastStartAngle = 0.0;
     double lastEndAngle = 0.0;
@@ -88,19 +88,6 @@
     BOOL isOnEnd = (self.layer.sublayers.count && (dataCount == 0 || dataSourceSum <= 0));
     if(isOnEnd) {
         for(CircleLayer *layer in self.layer.sublayers){
-            /*
-             给每个layer创建动画，动画一旦被添加到layer上，就会开始执行
-             由于这个动画属性不是系统的，所以不会产生动画效果，只会产生动画过程中的值
-             我们可以根据这些值画出实时图像，这样就形成了“动画”
-             其实跟自定义控件道理是一样的，只不过自定义控件是自己根据触摸来计算值，这里是系统根据动画来计算值，最后都是要画的
-             
-             -----以下是这个程序的做法-----
-             动画开始之后，手动创建定时器，每秒触发60次绘制图形，绘制方法：
-             创建UIBezierPath，把它赋给layer，这样layer就会自己绘制出path对应的图形，相当于关键帧动画
-             
-             系统的绘制方法：创建一个贝塞尔曲线，把path赋给layer，图像就出来了
-             但如果加个系统属性的动画到layer上，就会自动产生动画
-             */
             [self createAnimationWithKeyPath:@"startAngle" fromValue:@(0) toValue:@(_startPieAngle) layer:layer];
             [self createAnimationWithKeyPath:@"endAngle" fromValue:@(0) toValue:@(_startPieAngle) layer:layer];
         }
@@ -109,11 +96,10 @@
     }
     
     BOOL isOnStart = dataCount && self.layer.sublayers.count == 0;
-    
     for (int index = 0; index < dataCount; index ++) {
         CircleLayer *layer;
         if (isOnStart) {
-            layer = [self createCircleLayerWithIndex:index];
+            layer = [self createCircleLayerAtIndex:index];
             [self.layer addSublayer:layer];
         } else {
             layer = (CircleLayer *)self.layer.sublayers[index];
@@ -124,17 +110,11 @@
         double startAngle = _startPieAngle + lastStartAngle;
         double endAngle = _startPieAngle + lastEndAngle;
         
-        layer.lineWidth = _pieWidth;
+        layer.lineWidth = _pieLineWidth;
         layer.value = dataSources[index];
         layer.percentage = dataSourceSum ? layer.value/dataSourceSum : 0;
         
-        UIColor *color = nil;
-        if ([_dataSource respondsToSelector:@selector(pieChart:colorForSliceAtIndex:)]) {
-            color = [_dataSource pieChart:self colorForSliceAtIndex:index];
-        }
-        if (!color) {
-            color = [UIColor colorWithHue:((index/8)%20)/20.0+0.02 saturation:(index%8+3)/10.0 brightness:91/100.0 alpha:1];
-        }
+        UIColor *color = [self pieChart:self colorForSliceAtIndex:index];
         layer.strokeColor = color.CGColor;
         layer.fillColor = [UIColor clearColor].CGColor;
         
@@ -153,7 +133,7 @@
     }
 }
 
-- (void)sublayersInit {
+- (void)segmentsDeselect {
     _selectedIndex = -1;
     [self.layer.sublayers enumerateObjectsUsingBlock:^(CALayer * _Nonnull obj, NSUInteger idx, BOOL * _Nonnull stop) {
         CircleLayer *layer = (CircleLayer *)obj;
@@ -163,7 +143,7 @@
     }];
 }
 
-- (CircleLayer *)createCircleLayerWithIndex:(NSInteger)index {
+- (CircleLayer *)createCircleLayerAtIndex:(NSInteger)index {
     CircleLayer *layer = [CircleLayer layer];
     CALayer *imgLayer = [CALayer layer];
     imgLayer.contentsScale = [UIScreen mainScreen].scale;
@@ -190,6 +170,17 @@
     [layer addAnimation:anim forKey:key];
     // 设置结束值，这样动画结束之后就会停留在结束位置，而不会返回初始位置，这里一定要在添加动画之后设置
     [layer setValue:to forKey:key];
+}
+
+- (UIColor *)pieChart:(YBPieView *)pieChart colorForSliceAtIndex:(NSUInteger)index {
+    UIColor *color = nil;
+    if ([_dataSource respondsToSelector:@selector(pieChart:colorForSliceAtIndex:)]) {
+        color = [_dataSource pieChart:self colorForSliceAtIndex:index];
+    }
+    if (!color) {
+        color = [UIColor colorWithHue:((index/8)%20)/20.0+0.02 saturation:(index%8+3)/10.0 brightness:91/100.0 alpha:1];
+    }
+    return color;
 }
 
 #pragma mark - CAAnimation delegate and timer
@@ -251,7 +242,7 @@
     if ((gesture.angleIncrement > M_PI) || (gesture.angleIncrement < -M_PI)) return;
     
     self.startPieAngle += gesture.angleIncrement;
-    [self reloadDataWithAnimationDuration:0.1 completion:nil];
+    [self loadDataWithAnimationDuration:0.1 completion:nil];
 }
 
 - (void)tapRecognizer:(UITapGestureRecognizer *)gesture {
@@ -271,6 +262,7 @@
     if (fromSeletion != toSeletion) {
         if (fromSeletion != -1) {
             // delegate
+            // 使用block回调是为了动画执行完之后再进行下一步
             // 1.收回
             [self setDeselectedAtIndex:fromSeletion completion:^(YBPieView *view) {
                 // 2.旋转
@@ -349,7 +341,7 @@
         } else if (middleAngle >= 0 && middleAngle < M_PI/2) {
             _startPieAngle += M_PI/2 - middleAngle;
         }
-        [self reloadDataWithAnimationDuration:animationDuration completion:nil];
+        [self loadDataWithAnimationDuration:animationDuration completion:nil];
     }
     if (block) {
         [self doTaskAfter:animationDuration task:^(YBPieView *view) {
@@ -396,7 +388,7 @@
     
     CGFloat newRadius = _pieRadius + _selectedOffsetRadius;
     // 判断大半径(半径+选中偏移量)
-    if (polar.radius < newRadius-_pieWidth/2-_selectedOffsetRadius || polar.radius > newRadius+_pieWidth/2) {
+    if (polar.radius < newRadius-_pieLineWidth/2-_selectedOffsetRadius || polar.radius > newRadius+_pieLineWidth/2) {
         return index;
     }
     
@@ -407,8 +399,8 @@
         CGFloat currentEndAngle = [[layer.presentationLayer valueForKey:@"endAngle"] doubleValue];
         
         // 判断真实半径
-        BOOL selectedSelect = layer.isSelected && (polar.radius > newRadius-_pieWidth/2 && polar.radius < newRadius+_pieWidth/2);
-        BOOL deselectedSelect = !layer.isSelected && (polar.radius > _pieRadius-_pieWidth/2 && polar.radius < _pieRadius+_pieWidth/2);
+        BOOL selectedSelect = layer.isSelected && (polar.radius > newRadius-_pieLineWidth/2 && polar.radius < newRadius+_pieLineWidth/2);
+        BOOL deselectedSelect = !layer.isSelected && (polar.radius > _pieRadius-_pieLineWidth/2 && polar.radius < _pieRadius+_pieLineWidth/2);
         
         if (selectedSelect || deselectedSelect) {
             // 判断角度

@@ -30,9 +30,9 @@
 @property (nonatomic, weak) id<YBPieViewDataSource> dataSource;
 @property (nonatomic, assign) CGFloat startPieAngle;
 @property (nonatomic, assign) CGFloat animationDuration;
-@property (nonatomic, assign) CGFloat pieWidth;
+@property (nonatomic, assign) CGFloat pieLineWidth;
 @property (nonatomic, assign) CGFloat selectedOffsetRadius;
 
-- (void)loadView;
+- (void)reloadData;
 
 @end
