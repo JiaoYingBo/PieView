@@ -17,6 +17,7 @@
     CGPoint _pieCenter;
     CGFloat _pieRadius;
     NSInteger _selectedIndex;
+    BOOL _isRotating;
 }
 
 @end
@@ -35,6 +36,7 @@
         _pieRadius = MIN(frame.size.width/2 - _pieLineWidth, frame.size.width/2 - _pieLineWidth);
         _selectedIndex = -1;
         _selectedOffsetRadius = 7.0;
+        _isRotating = NO;
         
         RotateGestureRecognizer *rotateRec = [[RotateGestureRecognizer alloc] initWithTarget:self action:@selector(rotateRecognizer:)];
         rotateRec.innerRadius = _pieRadius - _pieLineWidth/2;
@@ -200,6 +202,27 @@
         [_animationTimer invalidate];
         _animationTimer = nil;
     }
+    if (flag == 1 && _isRotating) {
+        _isRotating = NO;
+        NSArray *pieLayers = self.layer.sublayers;
+        NSMutableArray *D_ValueArray = [NSMutableArray array];
+        NSMutableArray *angleArray = [NSMutableArray array];
+        [pieLayers enumerateObjectsUsingBlock:^(id  _Nonnull obj, NSUInteger idx, BOOL * _Nonnull stop) {
+            CircleLayer *layer = (CircleLayer *)obj;
+            CGFloat currentStartAngle = [[layer.presentationLayer valueForKey:@"startAngle"] doubleValue];
+            CGFloat currentEndAngle = [[layer.presentationLayer valueForKey:@"endAngle"] doubleValue];
+            CGFloat middleAngle = (currentStartAngle + currentEndAngle) / 2;
+            CGFloat temp = fabs(fmodf(middleAngle, 2*M_PI) - M_PI_2);
+            
+            [D_ValueArray addObject:@(temp)];
+            [angleArray addObject:@(fmodf(middleAngle, 2*M_PI) - M_PI_2)];
+        }];
+        NSInteger idx = [D_ValueArray indexOfObject:[self bubbleSort:D_ValueArray][0]];
+        CGFloat temp = [angleArray[idx] floatValue];
+        NSLog(@"++++>:%f",temp);
+        _startPieAngle -= temp;
+        [self loadDataWithAnimationDuration:0.2 completion:nil];
+    }
 }
 
 - (void)timerFired {
@@ -235,6 +258,7 @@
 
 // 单指旋转手势
 - (void)rotateRecognizer:(RotateGestureRecognizer *)gesture {
+    _isRotating = YES;
     if (_selectedIndex >= 0) {
         [self setDeselectedAtIndex:_selectedIndex completion:nil];
     }
@@ -242,7 +266,19 @@
     if ((gesture.angleIncrement > M_PI) || (gesture.angleIncrement < -M_PI)) return;
     
     self.startPieAngle += gesture.angleIncrement;
-    [self loadDataWithAnimationDuration:0.1 completion:nil];
+    [self loadDataWithAnimationDuration:0.5 completion:nil];
+}
+
+- (NSMutableArray *)bubbleSort:(NSMutableArray *)array {
+    NSMutableArray *arr = [NSMutableArray arrayWithArray:array];
+    for (int i = 0; i < arr.count-1; i ++) {
+        for (int j = 0; j < arr.count-1-i; j ++) {
+            if ([arr[j] intValue] > [arr[j + 1] intValue]) {
+                [arr exchangeObjectAtIndex:j withObjectAtIndex:j+1];
+            }
+        }
+    }
+    return arr;
 }
 
 - (void)tapRecognizer:(UITapGestureRecognizer *)gesture {
