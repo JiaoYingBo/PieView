@@ -22,6 +22,8 @@
 		0EAF74371E7A532B002424CA /* 3.png in Resources */ = {isa = PBXBuildFile; fileRef = 0EAF74321E7A532B002424CA /* 3.png */; };
 		0EAF74381E7A532B002424CA /* 4.png in Resources */ = {isa = PBXBuildFile; fileRef = 0EAF74331E7A532B002424CA /* 4.png */; };
 		0EAF74391E7A532B002424CA /* 5.png in Resources */ = {isa = PBXBuildFile; fileRef = 0EAF74341E7A532B002424CA /* 5.png */; };
+		0EAF74401E7FC4E6002424CA /* RotateGestureRecognizer.m in Sources */ = {isa = PBXBuildFile; fileRef = 0EAF743F1E7FC4E6002424CA /* RotateGestureRecognizer.m */; };
+		0EAF74431E7FD14A002424CA /* YBPieViewMath.m in Sources */ = {isa = PBXBuildFile; fileRef = 0EAF74421E7FD14A002424CA /* YBPieViewMath.m */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -67,6 +69,10 @@
 		0EAF74321E7A532B002424CA /* 3.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = 3.png; sourceTree = "<group>"; };
 		0EAF74331E7A532B002424CA /* 4.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = 4.png; sourceTree = "<group>"; };
 		0EAF74341E7A532B002424CA /* 5.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = 5.png; sourceTree = "<group>"; };
+		0EAF743E1E7FC4E6002424CA /* RotateGestureRecognizer.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = RotateGestureRecognizer.h; sourceTree = "<group>"; };
+		0EAF743F1E7FC4E6002424CA /* RotateGestureRecognizer.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = RotateGestureRecognizer.m; sourceTree = "<group>"; };
+		0EAF74411E7FD14A002424CA /* YBPieViewMath.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = YBPieViewMath.h; sourceTree = "<group>"; };
+		0EAF74421E7FD14A002424CA /* YBPieViewMath.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = YBPieViewMath.m; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -169,6 +175,10 @@
 				0EAF742B1E7A51F5002424CA /* YBPieView.m */,
 				0EAF742D1E7A526D002424CA /* CircleLayer.h */,
 				0EAF742E1E7A526D002424CA /* CircleLayer.m */,
+				0EAF74411E7FD14A002424CA /* YBPieViewMath.h */,
+				0EAF74421E7FD14A002424CA /* YBPieViewMath.m */,
+				0EAF743E1E7FC4E6002424CA /* RotateGestureRecognizer.h */,
+				0EAF743F1E7FC4E6002424CA /* RotateGestureRecognizer.m */,
 			);
 			path = PieView;
 			sourceTree = SOURCE_ROOT;
@@ -314,6 +324,8 @@
 			files = (
 				0EAF73FE1E7A5183002424CA /* ViewController.m in Sources */,
 				0EAF742F1E7A526D002424CA /* CircleLayer.m in Sources */,
+				0EAF74401E7FC4E6002424CA /* RotateGestureRecognizer.m in Sources */,
+				0EAF74431E7FD14A002424CA /* YBPieViewMath.m in Sources */,
 				0EAF73FB1E7A5183002424CA /* AppDelegate.m in Sources */,
 				0EAF742C1E7A51F5002424CA /* YBPieView.m in Sources */,
 				0EAF73F81E7A5183002424CA /* main.m in Sources */,
@@ -465,6 +477,7 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				DEVELOPMENT_TEAM = P9VZ5WEEZW;
 				INFOPLIST_FILE = YBPieView/Info.plist;
+				IPHONEOS_DEPLOYMENT_TARGET = 8.3;
 				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks";
 				PRODUCT_BUNDLE_IDENTIFIER = jyb.YBPieView;
 				PRODUCT_NAME = "$(TARGET_NAME)";
@@ -477,6 +490,7 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				DEVELOPMENT_TEAM = P9VZ5WEEZW;
 				INFOPLIST_FILE = YBPieView/Info.plist;
+				IPHONEOS_DEPLOYMENT_TARGET = 8.3;
 				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks";
 				PRODUCT_BUNDLE_IDENTIFIER = jyb.YBPieView;
 				PRODUCT_NAME = "$(TARGET_NAME)";

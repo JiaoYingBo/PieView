@@ -8,22 +8,8 @@
 
 #import "YBPieView.h"
 #import "CircleLayer.h"
-
-typedef struct{
-    double radius;
-    double angle;
-} PolarCoordinate;
-
-static PolarCoordinate decartToPolar(CGPoint center, CGPoint point){
-    double x = point.x - center.x;
-    double y = point.y - center.y;
-    
-    PolarCoordinate polar;
-    polar.radius = sqrt(pow(x, 2.0) + pow(y, 2.0));
-    polar.angle = acos(x/polar.radius);
-    if(y < 0) polar.angle = 2 * M_PI - polar.angle;
-    return polar;
-}
+#import "YBPieViewMath.h"
+#import "RotateGestureRecognizer.h"
 
 @interface YBPieView () {
     NSTimer *_animationTimer;
@@ -31,9 +17,6 @@ static PolarCoordinate decartToPolar(CGPoint center, CGPoint point){
     CGPoint _pieCenter;
     CGFloat _pieRadius;
     NSInteger _selectedIndex;
-    BOOL _isMoveState; //是旋转状态还是点击状态
-    CGFloat _previousMoveAngle; // 记录-touchMoved的上次角度
-    NSInteger _moveCountDown; // 回调-touchMoved的次数，次数少时以点击处理，次数多时才以旋转处理
 }
 
 @end
@@ -52,19 +35,27 @@ static PolarCoordinate decartToPolar(CGPoint center, CGPoint point){
         _pieRadius = MIN(frame.size.width/2 - _pieWidth, frame.size.width/2 - _pieWidth);
         _selectedIndex = -1;
         _selectedOffsetRadius = 7.0;
-        _isMoveState = NO;
-        _moveCountDown = 0;
+        
+        RotateGestureRecognizer *rotateRec = [[RotateGestureRecognizer alloc] initWithTarget:self action:@selector(rotateRecognizer:)];
+        rotateRec.innerRadius = _pieRadius - _pieWidth/2;
+        rotateRec.outerRadius = _pieRadius + _pieWidth/2;
+        [self addGestureRecognizer:rotateRec];
+        
+        UITapGestureRecognizer *tapRec = [[UITapGestureRecognizer alloc] initWithTarget:self action:@selector(tapRecognizer:)];
+        [self addGestureRecognizer:tapRec];
     }
     return self;
 }
 
 - (void)loadView {
     self.userInteractionEnabled = NO;
-    [self reloadDataWithAnimationDuration:_animationDuration];
-    self.userInteractionEnabled = YES;
+    [self reloadDataWithAnimationDuration:_animationDuration completion:nil];
+    [self doTaskAfter:_animationDuration task:^(YBPieView *view) {
+        self.userInteractionEnabled = YES;
+    }];
 }
 
-- (void)reloadDataWithAnimationDuration:(CGFloat)duration {
+- (void)reloadDataWithAnimationDuration:(CGFloat)duration completion:(void(^)(YBPieView *view))block {
     [self sublayersInit];
     
     double lastStartAngle = 0.0;
@@ -154,6 +145,12 @@ static PolarCoordinate decartToPolar(CGPoint center, CGPoint point){
     }
     
     [CATransaction commit];
+    
+    if (block) {
+        [self doTaskAfter:duration task:^(YBPieView *view) {
+            block(view);
+        }];
+    }
 }
 
 - (void)sublayersInit {
@@ -245,58 +242,26 @@ static PolarCoordinate decartToPolar(CGPoint center, CGPoint point){
 
 #pragma mark - touch actions
 
-- (void)touchesBegan:(NSSet<UITouch *> *)touches withEvent:(UIEvent *)event {
-    //
-}
-
-- (void)touchesMoved:(NSSet<UITouch *> *)touches withEvent:(UIEvent *)event {
-    _moveCountDown ++;
+// 单指旋转手势
+- (void)rotateRecognizer:(RotateGestureRecognizer *)gesture {
     if (_selectedIndex >= 0) {
         [self setDeselectedAtIndex:_selectedIndex completion:nil];
     }
+    // 临界点的值为6.x和-6.x(即从0到2*M_PI突变)
+    if ((gesture.angleIncrement > M_PI) || (gesture.angleIncrement < -M_PI)) return;
     
-    UITouch *touch = [touches anyObject];
-    CGPoint point = [touch locationInView:self];
-    PolarCoordinate polar = decartToPolar(_pieCenter, point);
-    
-    if (!_previousMoveAngle) {
-        _previousMoveAngle = polar.angle;
-    }
-    
-    CGFloat delta = polar.angle - _previousMoveAngle;
-    // 如果通过弧度0则不处理（数据特征:一个6.x一个0.x）
-    BOOL throughZero = fabs(polar.angle - _previousMoveAngle) >= M_PI;
-    if (throughZero) {
-        [self touchesEnded:touches withEvent:event];
-        return;
-    }
-    
-    _isMoveState = YES;
-    self.startPieAngle += delta;
-    [self reloadDataWithAnimationDuration:0.5];
-    _previousMoveAngle = polar.angle;
+    self.startPieAngle += gesture.angleIncrement;
+    [self reloadDataWithAnimationDuration:0.1 completion:nil];
 }
 
-- (void)touchesEnded:(NSSet<UITouch *> *)touches withEvent:(UIEvent *)event {
-    UITouch *touch = [touches anyObject];
-    CGPoint point = [touch locationInView:self];
-    
-    if (_isMoveState && _moveCountDown > 6) {
-        
-    } else {
+- (void)tapRecognizer:(UITapGestureRecognizer *)gesture {
+    CGPoint point = [gesture locationInView:self];
+    if (self.userInteractionEnabled) {
         NSInteger index = [self getSelectedIndexOnTouch:point];
         if (index != -1) {
             [self notifyDelegateFrom:_selectedIndex to:index];
         }
     }
-    _isMoveState = NO;
-    _previousMoveAngle = 0;
-    // 一定要在最后改变状态
-    _moveCountDown = 0;
-}
-
-- (void)touchesCancelled:(NSSet<UITouch *> *)touches withEvent:(UIEvent *)event {
-    _moveCountDown = 0;
 }
 
 #pragma mark - notify delegate
@@ -384,7 +349,7 @@ static PolarCoordinate decartToPolar(CGPoint center, CGPoint point){
         } else if (middleAngle >= 0 && middleAngle < M_PI/2) {
             _startPieAngle += M_PI/2 - middleAngle;
         }
-        [self reloadDataWithAnimationDuration:animationDuration];
+        [self reloadDataWithAnimationDuration:animationDuration completion:nil];
     }
     if (block) {
         [self doTaskAfter:animationDuration task:^(YBPieView *view) {
