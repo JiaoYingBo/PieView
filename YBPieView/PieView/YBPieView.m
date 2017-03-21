@@ -17,7 +17,6 @@
     CGPoint _pieCenter;
     CGFloat _pieRadius;
     NSInteger _selectedIndex;
-    BOOL _isRotating;
 }
 
 @end
@@ -36,7 +35,6 @@
         _pieRadius = MIN(frame.size.width/2 - _pieLineWidth, frame.size.width/2 - _pieLineWidth);
         _selectedIndex = -1;
         _selectedOffsetRadius = 7.0;
-        _isRotating = NO;
         
         RotateGestureRecognizer *rotateRec = [[RotateGestureRecognizer alloc] initWithTarget:self action:@selector(rotateRecognizer:)];
         rotateRec.innerRadius = _pieRadius - _pieLineWidth/2;
@@ -57,7 +55,7 @@
     }];
 }
 
-- (void)loadDataWithAnimationDuration:(CGFloat)duration completion:(void(^)(YBPieView *view))block {
+- (void)loadDataWithAnimationDuration:(CGFloat)duration timingFunction:(NSString *)fun completion:(void(^)(YBPieView *view))block {
     [self segmentsDeselect];
     
     double lastStartAngle = 0.0;
@@ -90,8 +88,8 @@
     BOOL isOnEnd = (self.layer.sublayers.count && (dataCount == 0 || dataSourceSum <= 0));
     if(isOnEnd) {
         for(CircleLayer *layer in self.layer.sublayers){
-            [self createAnimationWithKeyPath:@"startAngle" fromValue:@(0) toValue:@(_startPieAngle) layer:layer];
-            [self createAnimationWithKeyPath:@"endAngle" fromValue:@(0) toValue:@(_startPieAngle) layer:layer];
+            [self createAnimationWithKeyPath:@"startAngle" fromValue:@(0) toValue:@(_startPieAngle) func:fun layer:layer];
+            [self createAnimationWithKeyPath:@"endAngle" fromValue:@(0) toValue:@(_startPieAngle) func:fun layer:layer];
         }
         [CATransaction commit];
         return;
@@ -120,8 +118,8 @@
         layer.strokeColor = color.CGColor;
         layer.fillColor = [UIColor clearColor].CGColor;
         
-        [self createAnimationWithKeyPath:@"startAngle" fromValue:@(_startPieAngle) toValue:@(startAngle) layer:layer];
-        [self createAnimationWithKeyPath:@"endAngle" fromValue:@(_startPieAngle) toValue:@(endAngle) layer:layer];
+        [self createAnimationWithKeyPath:@"startAngle" fromValue:@(_startPieAngle) toValue:@(startAngle) func:fun layer:layer];
+        [self createAnimationWithKeyPath:@"endAngle" fromValue:@(_startPieAngle) toValue:@(endAngle) func:fun layer:layer];
         
         lastStartAngle = lastEndAngle;
     }
@@ -133,6 +131,10 @@
             block(view);
         }];
     }
+}
+
+- (void)loadDataWithAnimationDuration:(CGFloat)duration completion:(void(^)(YBPieView *view))block {
+    [self loadDataWithAnimationDuration:duration timingFunction:kCAMediaTimingFunctionEaseOut completion:block];
 }
 
 - (void)segmentsDeselect {
@@ -159,7 +161,7 @@
     return layer;
 }
 
-- (void)createAnimationWithKeyPath:(NSString *)key fromValue:(NSNumber *)from toValue:(NSNumber *)to layer:(CALayer *)layer {
+- (void)createAnimationWithKeyPath:(NSString *)key fromValue:(NSNumber *)from toValue:(NSNumber *)to func:(NSString *)func layer:(CALayer *)layer {
     CABasicAnimation *anim = [CABasicAnimation animationWithKeyPath:key];
     NSNumber *currentAngle = [layer.presentationLayer valueForKey:key];
     if (!currentAngle) {
@@ -168,7 +170,7 @@
     anim.fromValue = currentAngle;
     anim.toValue = to;
     anim.delegate = self;
-    anim.timingFunction = [CAMediaTimingFunction functionWithName:kCAMediaTimingFunctionEaseOut];
+    anim.timingFunction = [CAMediaTimingFunction functionWithName:func];
     [layer addAnimation:anim forKey:key];
     // 设置结束值，这样动画结束之后就会停留在结束位置，而不会返回初始位置，这里一定要在添加动画之后设置
     [layer setValue:to forKey:key];
@@ -202,27 +204,18 @@
         [_animationTimer invalidate];
         _animationTimer = nil;
     }
-    if (flag == 1 && _isRotating) {
-        _isRotating = NO;
-        NSArray *pieLayers = self.layer.sublayers;
-        NSMutableArray *D_ValueArray = [NSMutableArray array];
-        NSMutableArray *angleArray = [NSMutableArray array];
-        [pieLayers enumerateObjectsUsingBlock:^(id  _Nonnull obj, NSUInteger idx, BOOL * _Nonnull stop) {
-            CircleLayer *layer = (CircleLayer *)obj;
-            CGFloat currentStartAngle = [[layer.presentationLayer valueForKey:@"startAngle"] doubleValue];
-            CGFloat currentEndAngle = [[layer.presentationLayer valueForKey:@"endAngle"] doubleValue];
-            CGFloat middleAngle = (currentStartAngle + currentEndAngle) / 2;
-            CGFloat temp = fabs(fmodf(middleAngle, 2*M_PI) - M_PI_2);
-            
-            [D_ValueArray addObject:@(temp)];
-            [angleArray addObject:@(fmodf(middleAngle, 2*M_PI) - M_PI_2)];
-        }];
-        NSInteger idx = [D_ValueArray indexOfObject:[self bubbleSort:D_ValueArray][0]];
-        CGFloat temp = [angleArray[idx] floatValue];
-        NSLog(@"++++>:%f",temp);
-        _startPieAngle -= temp;
-        [self loadDataWithAnimationDuration:0.2 completion:nil];
+}
+
+- (NSMutableArray *)bubbleSort:(NSMutableArray *)array {
+    NSMutableArray *arr = [NSMutableArray arrayWithArray:array];
+    for (int i = 0; i < arr.count-1; i ++) {
+        for (int j = 0; j < arr.count-1-i; j ++) {
+            if ([arr[j] intValue] > [arr[j + 1] intValue]) {
+                [arr exchangeObjectAtIndex:j withObjectAtIndex:j+1];
+            }
+        }
     }
+    return arr;
 }
 
 - (void)timerFired {
@@ -258,7 +251,6 @@
 
 // 单指旋转手势
 - (void)rotateRecognizer:(RotateGestureRecognizer *)gesture {
-    _isRotating = YES;
     if (_selectedIndex >= 0) {
         [self setDeselectedAtIndex:_selectedIndex completion:nil];
     }
@@ -266,19 +258,32 @@
     if ((gesture.angleIncrement > M_PI) || (gesture.angleIncrement < -M_PI)) return;
     
     self.startPieAngle += gesture.angleIncrement;
-    [self loadDataWithAnimationDuration:0.5 completion:nil];
-}
-
-- (NSMutableArray *)bubbleSort:(NSMutableArray *)array {
-    NSMutableArray *arr = [NSMutableArray arrayWithArray:array];
-    for (int i = 0; i < arr.count-1; i ++) {
-        for (int j = 0; j < arr.count-1-i; j ++) {
-            if ([arr[j] intValue] > [arr[j + 1] intValue]) {
-                [arr exchangeObjectAtIndex:j withObjectAtIndex:j+1];
-            }
-        }
+    [self loadDataWithAnimationDuration:0.01 completion:nil];
+    if (gesture.state == UIGestureRecognizerStateEnded) {
+        self.startPieAngle += incrementOfPower(gesture.angleIncrement);
+        self.userInteractionEnabled = NO;
+        // 校正角度
+        [self loadDataWithAnimationDuration:1 completion:^(YBPieView *view) {
+            view.userInteractionEnabled = YES;
+            NSArray *pieLayers = view.layer.sublayers;
+            NSMutableArray *D_ValueArray = [NSMutableArray array];
+            NSMutableArray *angleArray = [NSMutableArray array];
+            [pieLayers enumerateObjectsUsingBlock:^(id  _Nonnull obj, NSUInteger idx, BOOL * _Nonnull stop) {
+                CircleLayer *layer = (CircleLayer *)obj;
+                CGFloat currentStartAngle = [[layer.presentationLayer valueForKey:@"startAngle"] doubleValue];
+                CGFloat currentEndAngle = [[layer.presentationLayer valueForKey:@"endAngle"] doubleValue];
+                CGFloat middleAngle = (currentStartAngle + currentEndAngle) / 2;
+                CGFloat temp = fabs(fmodf(middleAngle, 2*M_PI) - M_PI_2);
+                
+                [D_ValueArray addObject:@(temp)];
+                [angleArray addObject:@(fmodf(middleAngle, 2*M_PI) - M_PI_2)];
+            }];
+            NSInteger idx = [D_ValueArray indexOfObject:[view bubbleSort:D_ValueArray][0]];
+            CGFloat temp = [angleArray[idx] floatValue];
+            _startPieAngle -= temp;
+            [self loadDataWithAnimationDuration:0.35 timingFunction:kCAMediaTimingFunctionEaseIn completion:nil];
+        }];
     }
-    return arr;
 }
 
 - (void)tapRecognizer:(UITapGestureRecognizer *)gesture {

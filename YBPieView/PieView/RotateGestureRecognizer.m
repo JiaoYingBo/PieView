@@ -33,7 +33,7 @@ static const NSInteger sensitivity = 6; // 灵敏度
 }
 
 - (void)touchesMoved:(NSSet *)touches withEvent:(UIEvent *)event {
-    // 连续触发N次以上才触发手势，以便区分小幅度旋转手势和单击手势
+    // 连续触发sensitivity次以上才触发手势，以便区分小幅度旋转手势和单击手势
     if (_movedTimes++ > sensitivity) {
         if (self.state == UIGestureRecognizerStatePossible) {
             [self setState:UIGestureRecognizerStateBegan];

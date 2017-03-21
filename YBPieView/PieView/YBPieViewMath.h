@@ -14,3 +14,5 @@ typedef struct{
 } PolarCoordinate;
 
 PolarCoordinate decartToPolar(CGPoint center, CGPoint point);
+
+CGFloat incrementOfPower(CGFloat p);
