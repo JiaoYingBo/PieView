@@ -10,7 +10,7 @@
 #import "YBPieViewMath.h"
 #import <UIKit/UIGestureRecognizerSubclass.h>
 
-static const NSInteger sensitivity = 6; // 灵敏度
+static const NSInteger sensitivity = 6; // 连续触发6次touchMoved才开始此手势
 
 @implementation RotateGestureRecognizer {
     NSInteger _movedTimes;

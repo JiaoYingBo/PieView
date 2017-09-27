@@ -8,7 +8,7 @@
 
 #import <UIKit/UIKit.h>
 
-@interface RotateGestureRecognizer : UIGestureRecognizer
+@interface RotateGestureRecognizer : UIPanGestureRecognizer
 
 @property (nonatomic, assign) CGFloat currentAngle;
 @property (nonatomic, assign) CGFloat previousAngle;

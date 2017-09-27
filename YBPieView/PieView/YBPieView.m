@@ -172,7 +172,7 @@
     anim.delegate = self;
     anim.timingFunction = [CAMediaTimingFunction functionWithName:func];
     [layer addAnimation:anim forKey:key];
-    // 设置结束值，这样动画结束之后就会停留在结束位置，而不会返回初始位置，这里一定要在添加动画之后设置
+    // 设置结束值，这样动画结束之后就会停留在结束位置，而不会返回初始位置，一定要在添加动画之后设置
     [layer setValue:to forKey:key];
 }
 
@@ -251,6 +251,7 @@
 
 // 单指旋转手势
 - (void)rotateRecognizer:(RotateGestureRecognizer *)gesture {
+    NSLog(@"%f  %f",[gesture velocityInView:self].x,[gesture velocityInView:self].y);
     if (_selectedIndex >= 0) {
         [self setDeselectedAtIndex:_selectedIndex completion:nil];
     }
